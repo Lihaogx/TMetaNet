@@ -6,10 +6,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import torchmetrics
-from model.config import cfg
+from utils.config import cfg
 from sklearn.metrics import average_precision_score
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.metrics import roc_auc_score
+
+def compute_loss_meta(pred, y):
+    L = nn.BCELoss()
+    pred = pred.float()
+    y = y.to(pred)
+    loss = L(pred, y)
+
+    return loss
+
 
 def prediction(pred_score, true_l):
     # Acc_torch = torchmetrics.Accuracy(task='binary').to(pred_score)
@@ -43,12 +52,38 @@ def prediction(pred_score, true_l):
     return acc, ap, f1, macro_auc, micro_auc
     # return acc_torch, ap_torch, f1_torch, macro_auc_torch, micro_auc_torch
 
+def compute_loss(pred, true):
+    '''
 
-def Link_loss_meta(pred, y):
-    L = nn.BCELoss()
-    pred = pred.float()
-    y = y.to(pred)
-    loss = L(pred, y)
+    :param pred: unnormalized prediction
+    :param true: label
+    :return: loss, normalized prediction score
+    '''
+    bce_loss = nn.BCEWithLogitsLoss(size_average=cfg.model.size_average)
+    mse_loss = nn.MSELoss(size_average=cfg.model.size_average)
 
-    return loss
+    # default manipulation for pred and true
+    # can be skipped if special loss computation is needed
+    # if multi task binary classification, treat as flatten binary
+    if true.ndim > 1 and cfg.model.loss_fun == 'cross_entropy':
+        pred, true = torch.flatten(pred), torch.flatten(true)
+    pred = pred.squeeze(-1) if pred.ndim > 1 else pred
+    true = true.squeeze(-1) if true.ndim > 1 else true
+
+    if cfg.model.loss_fun == 'cross_entropy':
+        # multiclass
+        if pred.ndim > 1:
+            pred = F.log_softmax(pred, dim=-1)
+            return F.nll_loss(pred, true), pred
+        # binary
+        else:
+            true = true.float()
+            return bce_loss(pred, true), torch.sigmoid(pred)
+    elif cfg.model.loss_fun == 'mse':
+        true = true.float()
+        return mse_loss(pred, true), pred
+    else:
+        raise ValueError('Loss func {} not supported'.
+                         format(cfg.model.loss_fun))
+
 

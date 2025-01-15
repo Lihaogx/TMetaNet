@@ -1,0 +1,108 @@
+print: both
+device: auto
+out_dir: results
+cfg_dest: config.yaml
+seed: 1
+round: 4
+tensorboard_each_run: false
+tensorboard_agg: true
+num_workers: 0
+num_threads: 6
+metric_best: auto
+view_emb: false
+
+dataset:
+  name: bitcoin-alpha
+  task: link_pred
+  task_type: classification
+  task_splitting: temporal
+  split: [0.7, 0.3]
+  edge_encoder: true
+  edge_encoder_bn: true
+  edge_dim: 128
+
+train:
+  mode: windows_dgl
+  epoch_resume: -1
+  ckpt_clean: true
+  stop_live_update_after: 9999999
+  internal_validation_tolerance: 5
+
+model:
+  type: wingnn
+  loss_fun: cross_entropy
+  size_average: true
+  thresh: 0.5
+  edge_decoding: dot
+
+gnn:
+  layers_mp: 2
+  dim_inner: 256
+  dim_out: 64
+  hidden_dim: 256
+  layer_type: windows_gcn_dgl
+  batchnorm: true
+  act: prelu
+  dropout: 0.0
+  agg: add
+  normalize_adj: false
+  msg_direction: single
+  att_heads: 1
+  l2norm: true
+  skip_connection: affine
+
+optim:
+  optimizer: adam
+  base_lr: 0.005
+  weight_decay: 0.0001
+  momentum: 0.9
+  scheduler: cos
+  steps: [30, 60, 90]
+  lr_decay: 0.1
+  max_epoch: 100
+
+bn:
+  eps: 1e-5
+  mom: 0.1
+
+mem:
+  inplace: false
+
+experimental:
+  rank_eval_multiplier: 1000
+
+transaction:
+  snapshot: false
+  snapshot_num: 100
+  snapshot_freq: D
+  check_snapshot: false
+  history: full
+  loss: meta
+  feature_int_dim: 32
+  feature_node_int_num: [0]
+  feature_amount_dim: 64
+  feature_time_dim: 64
+  node_feature: raw
+  horizon: 1
+  pred_mode: before
+  time_enc_periods: [1]
+  time_enc_mode: enc_before_diff
+  keep_ratio: linear
+
+metric:
+  mrr_method: max
+
+link_pred_spec:
+  forecast_frequency: 1
+  forecast_horizon: 7
+
+meta:
+  is_meta: true
+  method: moving_average
+  alpha: 0.8
+
+windows:
+  window_size: 8
+  maml_lr: 0.003
+  drop_rate: 0.1
+  beta: 0.89

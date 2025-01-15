@@ -27,6 +27,7 @@ dataset/*
 preprocess/*
 !preprocess/.gitkeep
 
+*.csv
 # 通用的系统文件
 .DS_Store
 Thumbs.db

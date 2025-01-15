@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # @Description :
+from typing import Optional, List, Type
 import dgl
+import deepsnap
 import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim as optim
-from model.config import cfg
+from utils.config import cfg
 from torch_scatter import scatter_max, scatter_mean, scatter_min
-from model.loss import prediction, Link_loss_meta
+from model.loss import prediction
 
 
 def create_optimizer(opt, model, lr, weight_decay, get_num_layer=None, get_layer_scale=None):
@@ -28,12 +30,29 @@ def create_optimizer(opt, model, lr, weight_decay, get_num_layer=None, get_layer
     elif opt_lower == "radam":
         optimizer = optim.RAdam(parameters, **opt_args)
     elif opt_lower == "sgd":
-        opt_args["momentum"] = 0.9
+        opt_args["momentum"] = cfg.optim.momentum
         return optim.SGD(parameters, **opt_args)
     else:
         assert False and "Invalid optimizer"
 
     return optimizer
+
+def create_scheduler(optimizer):
+    # Try to load customized scheduler
+    if cfg.optim.scheduler == 'none':
+        scheduler = optim.lr_scheduler.StepLR(optimizer,
+                                              step_size=cfg.optim.max_epoch + 1)
+    elif cfg.optim.scheduler == 'step':
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
+                                                   milestones=cfg.optim.steps,
+                                                   gamma=cfg.optim.lr_decay)
+    elif cfg.optim.scheduler == 'cos':
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,
+                                                    T_max=cfg.optim.max_epoch)
+    else:
+        raise ValueError('Scheduler {} not supported'.format(
+            cfg.optim.scheduler))
+    return scheduler
 
 
 def create_activation(activation):
@@ -88,12 +107,12 @@ def fast_batch_mrr_and_recall(edge_label_index, edge_label, pred_score, num_neg_
     src_lst = torch.unique(edge_label_index[0], sorted=True)
     num_users = len(src_lst)
 
-    edge_pos = edge_label_index[:, edge_label == 1]
-    edge_neg = edge_label_index[:, edge_label == 0]
+    edge_pos = edge_label_index[:, edge_label == 1].to('cpu')
+    edge_neg = edge_label_index[:, edge_label == 0].to('cpu')
 
     # By construction, negative edge index should be sorted by their src nodes.
     assert torch.all(edge_neg[0].sort()[0] == edge_neg[0])
-
+    edge_label = edge_label.to('cpu')
     # Prediction scores of all positive and negative edges.
     p_pos = pred_score[edge_label == 1]
     p_neg = pred_score[edge_label == 0]
@@ -114,6 +133,7 @@ def fast_batch_mrr_and_recall(edge_label_index, edge_label, pred_score, num_neg_
                                     dim_size=num_nodes)
     # best_p_pos has shape (num_nodes), for nodes not in src_lst has value 0.
     # 取出了节点上的最大概率
+    src_lst = src_lst.to('cpu')
     best_p_pos_by_user = best_p_pos[src_lst]
 
     # Sanity check.
@@ -178,8 +198,8 @@ def report_rank_based_eval_meta(model, graph, x, fast_weights, num_neg_per_node:
                                 ), dim=0)
 
     # Construct evaluation samples.
-    graph.edge_label_index = new_edge_label_index.to('cpu').long()
-    graph.edge_label = new_edge_label.to('cpu').long()
+    graph.edge_label_index = new_edge_label_index.long()
+    graph.edge_label = new_edge_label.long()
 
     # move state to gpu
     pred = model(graph, x, fast_weights)
