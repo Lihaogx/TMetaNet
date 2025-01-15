@@ -86,6 +86,8 @@ def set_cfg(cfg):
 
     # Dimension for edge feature. Updated by the real dim of the dataset
     cfg.dataset.edge_dim = 128
+    
+    cfg.dataset.node_dim = 1
 
     # ------------------------------------------------------------------------ #
     # Training options

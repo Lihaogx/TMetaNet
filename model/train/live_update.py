@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from model.checkpoint import clean_ckpt
 from utils.config import cfg
-from model.train import train_utils
+from model.train import roland_train_utils
 from model.loss import compute_loss
 from model.utils import create_optimizer, create_scheduler
 from utils.config import makedirs_rm_exist
@@ -64,7 +64,7 @@ def precompute_edge_degree_info(dataset):
         dataset[t].node_degree_new = node_degree(dataset[t].edge_index,
                                                  n=num_nodes)
 
-        dataset[t].keep_ratio = train_utils.get_keep_ratio(
+        dataset[t].keep_ratio = roland_train_utils.get_keep_ratio(
             existing=dataset[t].node_degree_existing,
             new=dataset[t].node_degree_new,
             mode=cfg.transaction.keep_ratio)
@@ -114,7 +114,7 @@ def get_task_batch(dataset: deepsnap.dataset.GraphDataset,
             copied = [x.detach().clone() for x in val]
             setattr(batch, key, copied)
 
-    batch = train_utils.move_batch_to_device(batch, cfg.device)
+    batch = roland_train_utils.move_batch_to_device(batch, cfg.device)
     return batch
 
 
@@ -201,7 +201,7 @@ def evaluate_step(model, dataset, task: Tuple[int, int],
     mrr_batch = get_task_batch(dataset, today, tomorrow,
                                prev_node_states).clone()
 
-    mrr, rck1, rck3, rck10 = train_utils.report_rank_based_eval(
+    mrr, rck1, rck3, rck10 = roland_train_utils.report_rank_based_eval(
         mrr_batch, model,
         num_neg_per_node=cfg.experimental.rank_eval_multiplier)
 

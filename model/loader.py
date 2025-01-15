@@ -39,7 +39,7 @@ def read_npz(path):
 def create_dataset():
     path = "dataset/" + cfg.dataset.name
     # 
-    if cfg.train.mode == 'windows_dgl':
+    if cfg.train.mode == 'windows':
         path_ei = path + '/' + 'edge_index/'
         path_nf = path + '/' + 'node_feature/'
         path_ef = path + '/' + 'edge_feature/'
@@ -166,12 +166,10 @@ def create_model(
         The constructed pytorch model.
     """
     # FIXME: num_node_features/num_labels not working properly for HeteroGraph.
-    if cfg.train.mode == 'windows_dgl':
-        dim_in = 1
-        dim_out = 2
-    else:
-        dim_in = datasets[0].num_node_features if dim_in is None else dim_in
-        dim_out = datasets[0].num_labels if dim_out is None else dim_out
+    dim_in = cfg.dataset.node_dim
+    dim_out = 2
+    # dim_in = datasets[0].num_node_features if dim_in is None else dim_in
+    # dim_out = datasets[0].num_labels if dim_out is None else dim_out
     if 'classification' in cfg.dataset.task_type and dim_out == 2:
         # binary classification, output dim = 1
         dim_out = 1

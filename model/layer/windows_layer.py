@@ -10,10 +10,10 @@ from torch_scatter import scatter_add
 from copy import deepcopy
 
 
-class Windows_GCNLayer_DGL(nn.Module):
+class Windows_GCNLayer(nn.Module):
 
     def __init__(self, dim_in, dim_out, pos_isn):
-        super(Windows_GCNLayer_DGL, self).__init__()
+        super(Windows_GCNLayer, self).__init__()
         self.pos_isn = pos_isn
         if cfg.gnn.skip_connection == 'affine':
             self.linear_skip_weight = nn.Parameter(torch.ones(size=(dim_out, dim_in)))

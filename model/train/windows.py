@@ -9,7 +9,7 @@ import logging
 import numpy as np
 from copy import deepcopy
 from model.loss import prediction
-from model.utils import report_rank_based_eval_meta
+from model.train.wingnn_train_utils import report_rank_based_eval_meta
 import datetime
 import logging
 import numpy as np
@@ -17,7 +17,7 @@ import torch
 from tqdm import tqdm
 import logging
 from utils.config import cfg
-from model.loss import compute_loss, compute_loss_meta
+from model.loss import compute_loss_meta
 from utils.config import makedirs_rm_exist
 from torch.utils.tensorboard import SummaryWriter
 
@@ -28,14 +28,15 @@ def windows_train(model, optimizer, graph_l, writer):
     earl_stop_c = 0
     epoch_count = 0
 
-    for epoch in tqdm(range(cfg.optim.max_epoch), desc='Epoch', leave=True):
-        # graph_l_cpy = deepcopy(graph_l)
+    for epoch in tqdm(range(cfg.optim.max_epoch)):
+        # Keep a version of the data without gradient calculation
+        graph_l_cpy = deepcopy(graph_l)
         all_mrr = 0.0
         i = 0
         fast_weights = [w.to(device) for w in model.parameters()]
         S_dw = [0] * len(fast_weights)
         train_count = 0
-        
+        # LightDyG windows calculation
         while i < (n - cfg.windows.window_size):
             if i != 0:
                 i = random.randint(i, i + cfg.windows.window_size)
@@ -43,62 +44,61 @@ def windows_train(model, optimizer, graph_l, writer):
                 break
             graph_train = graph_l[i: i + cfg.windows.window_size]
             i = i + 1
+            # Copy a version of data as a valid in the window
+            features = [graph_unit.node_feature.to(device) for graph_unit in graph_train]
             
-            features = [graph_unit.node_feature for graph_unit in graph_train]
+            # 确保fast_weights在正确的设备上
             fast_weights = [w.to(device) for w in model.parameters()]
             
             window_mrr = 0.0
             losses = torch.tensor(0.0).to(device)
             count = 0
-            
+            # one window
             for idx, graph in enumerate(graph_train):
+                # The last snapshot in the window is valid only
                 if idx == cfg.windows.window_size - 1:
                     break
-                    
                 # t snapshot train
-                current_graph = graph.to(device)
+                # Copy a version of data as a train in the window
                 feature_train = features[idx].to(device)
-                
-                pred = model(current_graph, feature_train, fast_weights)
-                loss = compute_loss_meta(pred, current_graph.edge_label)
-                
+                graph = graph.to(device)
+                pred = model(graph, feature_train, fast_weights)
+                loss = compute_loss_meta(pred, graph.edge_label)
+
+                # t grad
                 grad = torch.autograd.grad(loss, fast_weights)
-                
-                current_graph = current_graph.to('cpu')
-                feature_train = feature_train.cpu()
-                
+
+                graph = graph.to('cpu')
+                feature_train = feature_train.to('cpu')
+
                 beta = cfg.windows.beta
                 S_dw = [beta * s + (1 - beta) * g * g for s, g in zip(S_dw, grad)]
                 fast_weights = [w - cfg.windows.maml_lr / (torch.sqrt(s) + 1e-8) * g 
                               for w, g, s in zip(fast_weights, grad, S_dw)]
-                
+
                 # t+1 snapshot valid
-                next_graph = graph_train[idx + 1].to(device)
-                next_feature = features[idx + 1].to(device)
-                
-                pred = model(next_graph, next_feature, fast_weights)
-                loss = compute_loss_meta(pred, next_graph.edge_label)
-                
-                edge_label = next_graph.edge_label
-                edge_label_index = next_graph.edge_label_index
-                mrr, rl1, rl3, rl10 = report_rank_based_eval_meta(model, next_graph, next_feature, fast_weights)
-                
-                next_graph.edge_label = edge_label
-                next_graph.edge_label_index = edge_label_index
-                
-                droprate = torch.FloatTensor(np.ones(shape=(1)) * cfg.windows.drop_rate).to(device)
+                graph_train[idx + 1] = graph_train[idx + 1].to(device)
+                pred = model(graph_train[idx + 1], features[idx + 1], fast_weights)
+                loss = compute_loss_meta(pred, graph_train[idx + 1].edge_label)
+
+                edge_label = graph_train[idx + 1].edge_label
+                edge_label_index = graph_train[idx + 1].edge_label_index
+                mrr, rl1, rl3, rl10 = report_rank_based_eval_meta(model, graph_train[idx + 1], features[idx+1],
+                                                                  fast_weights)
+                graph_train[idx + 1].edge_label = edge_label
+                graph_train[idx + 1].edge_label_index = edge_label_index
+
+                droprate = torch.FloatTensor(np.ones(shape=(1)) * cfg.windows.drop_rate)
                 masks = torch.bernoulli(1. - droprate).unsqueeze(1)
                 if masks[0][0]:
                     losses = losses + loss
                     count += 1
                     window_mrr += mrr
-                
-                acc, ap, f1, macro_auc, micro_auc = prediction(pred, next_graph.edge_label)
-                perf = {'loss': loss.item(), 'mrr': mrr, 'acc': acc, 'ap': ap, 'f1': f1, 
+                acc, ap, f1, macro_auc, micro_auc = prediction(pred, graph_train[idx + 1].edge_label)
+                perf = {'loss': loss.item(), 'mrr': mrr, 'accuracy': acc, 'ap': ap, 'f1': f1, 
                        'macro_auc': macro_auc, 'micro_auc': micro_auc}
                 writer.add_scalars('train', perf, epoch)
-                next_graph = next_graph.to('cpu')
-                next_feature = next_feature.cpu()
+
             if losses:
                 losses = losses / count
                 optimizer.zero_grad()
@@ -118,12 +118,10 @@ def windows_train(model, optimizer, graph_l, writer):
             earl_stop_c += 1
             if earl_stop_c == 10:
                 break
-
     return best_param
 
-def windows_test(graph_l, model, S_dw):
+def windows_test(graph_test, model, S_dw):
     device = next(model.parameters()).device
-    n = len(graph_l)
     beta = cfg.windows.beta
     avg_mrr = 0.0
     avg_auc = 0.0
@@ -135,44 +133,42 @@ def windows_test(graph_l, model, S_dw):
     f1_avg = 0.0
     macro_auc_avg = 0.0
     micro_auc_avg = 0.0
-
-    graph_test = graph_l
+    # model parameters
     fast_weights = list(map(lambda p: p[0], zip(model.parameters())))
-    
-    for idx, g_test in tqdm(enumerate(graph_test[:-1]), desc='Testing', total=len(graph_test)-1):
-        # 获取当前和下一个图
-        current_graph = g_test
-        next_graph = graph_test[idx + 1]
+    for idx, g_test in tqdm(enumerate(graph_test)):
 
-        graph_train = deepcopy(current_graph.node_feature)
+        if idx == len(graph_test) - 1:
+            break
+
+        graph_train = deepcopy(g_test.node_feature)
         graph_train = graph_train.to(device)
-        current_graph = current_graph.to(device)
+        g_test = g_test.to(device)
 
-        pred = model(current_graph, graph_train, fast_weights)
-        loss = compute_loss_meta(pred, current_graph.edge_label)
+        pred = model(g_test, graph_train, fast_weights)
+        loss = compute_loss_meta(pred, g_test.edge_label)
 
         graph_train = graph_train.to('cpu')
         grad = torch.autograd.grad(loss, fast_weights)
-        current_graph = current_graph.to('cpu')
+        g_test = g_test.to('cpu')
 
         S_dw = list(map(lambda p: beta * p[1] + (1 - beta) * p[0].pow(2), zip(grad, S_dw)))
-        fast_weights = list(map(lambda p: p[1] - cfg.windows.maml_lr / (torch.sqrt(p[2]) + 1e-8) * p[0], 
-                              zip(grad, fast_weights, S_dw)))
 
-        # 处理下一个图
-        next_graph = next_graph.to(device)
-        pred = model(next_graph, next_graph.node_feature, fast_weights)
-        loss = compute_loss_meta(pred, next_graph.edge_label)
+        fast_weights = list(map(lambda p: p[1] - cfg.windows.maml_lr / (torch.sqrt(p[2]) + 1e-8) * p[0], zip(grad, fast_weights, S_dw)))
 
-        edge_label = next_graph.edge_label
-        edge_label_index = next_graph.edge_label_index
-        mrr, rl1, rl3, rl10 = report_rank_based_eval_meta(model, next_graph, next_graph.node_feature,
+        graph_test[idx + 1] = graph_test[idx + 1].to(device)
+        graph_test[idx + 1].node_feature = graph_test[idx + 1].node_feature.to(device)
+        pred = model(graph_test[idx + 1], graph_test[idx + 1].node_feature, fast_weights)
+
+        loss = compute_loss_meta(pred, graph_test[idx + 1].edge_label)
+
+        edge_label = graph_test[idx + 1].edge_label
+        edge_label_index = graph_test[idx + 1].edge_label_index
+        mrr, rl1, rl3, rl10 = report_rank_based_eval_meta(model, graph_test[idx + 1], graph_test[idx + 1].node_feature,
                                                           fast_weights)
-        
-        next_graph.edge_label = edge_label
-        next_graph.edge_label_index = edge_label_index
+        graph_test[idx + 1].edge_label = edge_label
+        graph_test[idx + 1].edge_label_index = edge_label_index
 
-        acc, ap, f1, macro_auc, micro_auc = prediction(pred, next_graph.edge_label)
+        acc, ap, f1, macro_auc, micro_auc = prediction(pred, graph_test[idx + 1].edge_label)
         avg_mrr += mrr
         avg_auc += macro_auc
         rl1_avg += rl1
@@ -194,8 +190,25 @@ def windows_test(graph_l, model, S_dw):
     f1_avg /= len(graph_test) - 1
     macro_auc_avg /= len(graph_test) - 1
     micro_auc_avg /= len(graph_test) - 1
+    # 检查所有指标是否存在nan值
+    metrics = {
+        'mrr': avg_mrr, 
+        'avg_auc': avg_auc,
+        'rck1': rl1_avg,
+        'rck3': rl3_avg, 
+        'rck10': rl10_avg,
+        'acc': acc_avg,
+        'ap': ap_avg,
+        'f1': f1_avg,
+        'macro_auc': macro_auc_avg,
+        'micro_auc': micro_auc_avg
+    }
+    
+    for metric_name, value in metrics.items():
+        if torch.isnan(value) if torch.is_tensor(value) else np.isnan(value):
+            logging.warning(f'警告: {metric_name} 的值为 NaN')
     return {'mrr': avg_mrr, 'avg_auc': avg_auc, 'rck1': rl1_avg, 'rck3': rl3_avg,
-            'rck10': rl10_avg, 'acc': acc_avg, 'ap': ap_avg, 'f1': f1_avg, 'macro_auc': macro_auc_avg, 'micro_auc': micro_auc_avg}
+            'rck10': rl10_avg, 'accuracy': acc_avg, 'ap': ap_avg, 'f1': f1_avg, 'macro_auc': macro_auc_avg, 'micro_auc': micro_auc_avg}
 
 def train_windows(loggers, model, optimizer, scheduler, datasets,
                       **kwargs):

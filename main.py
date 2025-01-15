@@ -25,14 +25,12 @@ from utils.config import get_parent_dir
 from deepsnap.dataset import GraphDataset
 from model.train.live_update import train_live_update
 from model.train.windows import train_windows
-from model.train.windows_dgl import train_windows_dgl
 import yaml
 import warnings
 warnings.filterwarnings("ignore")
 train_dict = {
     'live_update': train_live_update,
     'windows': train_windows,
-    'windows_dgl': train_windows_dgl
 }
 
 def dataset_cfg_setup_live_update(name: str):
@@ -41,6 +39,7 @@ def dataset_cfg_setup_live_update(name: str):
     """
 
     if name in ['bitcoin-otc', 'bitcoin-alpha']:
+        cfg.dataset.node_dim = 1
         cfg.dataset.edge_dim = 2
         cfg.transaction.snapshot_freq = 'W'
         
