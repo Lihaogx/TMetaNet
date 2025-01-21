@@ -65,7 +65,7 @@ def read_npz(path):
 def create_dataset():
     path = "/home/lh/Dowzag_2.0/dataset/" + cfg.dataset.name
     # 
-    if cfg.train.mode == 'windows':
+    if 'windows' in cfg.train.mode:
         path_ei = path + '/' + 'edge_index/'
         path_nf = path + '/' + 'node_feature/'
         path_ef = path + '/' + 'edge_feature/'
@@ -141,25 +141,11 @@ def create_dataset():
                                    minimum_node_per_graph=5)
             edge_labe_index = dataset.graphs[0].edge_label_index
             graph_l[idx].edge_label_index = torch.LongTensor(edge_labe_index)
-        
-    elif cfg.model.type == 'roland':
-        graph_l = loader_dict[cfg.dataset.name](path, cfg.dataset.name)
-        
-    if cfg.dataset.task_splitting == 'temporal':
-
-        n = math.ceil(len(graph_l) * cfg.dataset.split[0])
-        dataset_train = graph_l[:n]
-        dataset_test = graph_l[n:]
-        datasets = [dataset_train, dataset_test]
-        # datasets = GraphDataset(graphs=graph_l,
-        #                         task='link_pred',
-        #                         edge_train_mode='all',
-        #                         minimum_node_per_graph=5)
-        # datasets.split(
-        #         transductive=False,
-        #         split_ratio=cfg.dataset.split,
-        #         shuffle=False)
-    elif cfg.dataset.task_splitting == 'within':
+            n = math.ceil(len(graph_l) * cfg.dataset.split[0])
+            dataset_train = graph_l[:n]
+            dataset_test = graph_l[n:]
+            datasets = [dataset_train, dataset_test]
+    elif 'live_update' in cfg.train.mode:
         graph_l = loader_dict[cfg.dataset.name](path, cfg.dataset.name)
         dataset = GraphDataset(graphs=graph_l,
                             task='link_pred',
@@ -169,8 +155,9 @@ def create_dataset():
                 transductive=True,
                 split_ratio=cfg.dataset.split,
                 shuffle=True)
+
     else:
-        raise ValueError(f"Invalid task splitting method: {cfg.task_splitting}")
+        raise ValueError(f"Invalid train mode: {cfg.train.mode}")
     return datasets
 
 
@@ -266,15 +253,17 @@ def create_model(
         The constructed pytorch model.
     """
     # FIXME: num_node_features/num_labels not working properly for HeteroGraph.
-    if cfg.model.type == 'roland':
-        dim_in = datasets[0].num_node_features if dim_in is None else dim_in
-        dim_out = datasets[0].num_labels if dim_out is None else dim_out
-    else:
-        dim_in = cfg.dataset.node_dim
-        dim_out = cfg.dataset.edge_dim
-    if 'classification' in cfg.dataset.task_type and dim_out == 2:
-        # binary classification, output dim = 1
-        dim_out = 1
+    dim_in = cfg.dataset.node_dim
+    dim_out = 1
+    # if cfg.model.type == 'roland':
+    #     dim_in = datasets[0].num_node_features if dim_in is None else dim_in
+    #     dim_out = datasets[0].num_labels if dim_out is None else dim_out
+    # else:
+    #     dim_in = cfg.dataset.node_dim
+    #     dim_out = cfg.dataset.edge_dim
+    # if 'classification' in cfg.dataset.task_type and dim_out == 2:
+    #     # binary classification, output dim = 1
+    #     dim_out = 1
     model = network_dict[cfg.model.type](dim_in=dim_in, dim_out=dim_out)
     if to_device:
         model.to(torch.device(cfg.device))

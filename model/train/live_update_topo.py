@@ -344,13 +344,11 @@ def train_live_update_topo(loggers, model, meta_model, optimizer, scheduler, met
         # contains information up to time t.
         # Use the best model selected from intra-snapshot cross-validation.
         model.load_state_dict(best_model['state'])
-        if t > 0:
+        mask = torch.bernoulli(torch.tensor(1. - cfg.topo.drop_rate))
+        if t > 0 and mask.item():
             # 初始化最佳meta损失和状态
             best_meta_loss = float('inf')
             best_meta_state = None
-            
-            # 在meta优化循环之前初始化S_dw
-            S_dw = [torch.zeros_like(grad) for grad in gradients.values()]
             
             # 进行多次meta优化循环
             for meta_iter in range(cfg.optim.meta_loop):
@@ -387,9 +385,7 @@ def train_live_update_topo(loggers, model, meta_model, optimizer, scheduler, met
                 # 只更新有梯度的参数
                 for i, name in enumerate(param_names_with_grad):
                     if i < len(learning_rates):  # 确保不会超出learning_rates的范围
-                        # 防止梯度爆炸
-                        S_dw = [0.5 * s + (1 - 0.5) * g * g for s, g in zip(S_dw, gradients.values())]
-                        gradients[name] = gradients[name] / (torch.sqrt(S_dw[i]) + 1e-8)
+                        # 更新参数
                         current_params[name] = current_params[name] - learning_rates[i] * gradients[name]
                 
                 model.load_state_dict(current_params)

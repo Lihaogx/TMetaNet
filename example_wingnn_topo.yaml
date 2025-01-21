@@ -22,7 +22,7 @@ dataset:
   edge_dim: 128
 
 train:
-  mode: windows
+  mode: windows_topo
   epoch_resume: -1
   ckpt_clean: true
   stop_live_update_after: 9999999
@@ -106,3 +106,21 @@ windows:
   maml_lr: 0.003
   drop_rate: 0.1
   beta: 0.89
+topo:
+  use_topo: true
+  meta_type: Residual
+  resolution: 50
+  filtration:
+  - - 1
+    - 1
+  remove_edge: 'off'
+  remove_ratio: 1.0
+  window_size: 10000
+  dropout: 0.2
+  bandwidth: 2.0
+  power: 2.0
+  is_directed: false
+  distance: wasserstein
+  gamma: 0.1
+  weight_method: exp
+  delta: 0.0

@@ -26,13 +26,15 @@ from deepsnap.dataset import GraphDataset
 from model.train.live_update_topo import train_live_update_topo
 from model.train.live_update import train_live_update
 from model.train.windows import train_windows
+from model.train.windows_topo import train_windows_topo
 import yaml
 import warnings
 warnings.filterwarnings("ignore")
 train_dict = {
     'live_update': train_live_update,
     'windows': train_windows,
-    'live_update_topo': train_live_update_topo
+    'live_update_topo': train_live_update_topo,
+    'windows_topo': train_windows_topo
 }
 
 def dataset_cfg_setup_live_update(name: str):
@@ -51,6 +53,7 @@ def dataset_cfg_setup_live_update(name: str):
         cfg.transaction.snapshot_freq = 'W'
         
     elif name in ['reddit-body', 'reddit-title']:
+        cfg.dataset.node_dim = 300
         cfg.dataset.edge_dim = 88
         cfg.transaction.snapshot_freq = 'W'
 
@@ -58,6 +61,7 @@ def dataset_cfg_setup_live_update(name: str):
         cfg.dataset.edge_dim = 1
         cfg.transaction.snapshot_freq = 'D'
     elif name in ['ethereum']:
+        cfg.dataset.node_dim = 1
         cfg.dataset.edge_dim = 2
         cfg.transaction.snapshot_freq = '1200000s'
 
@@ -112,7 +116,7 @@ if __name__ == '__main__':
             end = int(torch.max(all_edge_time))
             end = datetime.fromtimestamp(end)
             print(f'\tRange: {start} - {end}')
-        if cfg.train.mode == 'live_update_topo':
+        if 'topo' in cfg.train.mode:
             meta_model = create_meta_model(dim_out = len(list(model.parameters())))
             meta_optimizer = create_optimizer(cfg.optim.optimizer, meta_model, cfg.optim.meta_lr, cfg.optim.meta_weight_decay)
             meta_scheduler = create_scheduler(meta_optimizer)

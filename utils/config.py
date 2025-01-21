@@ -393,6 +393,8 @@ def set_cfg(cfg):
     
     cfg.topo.meta_type = 'MultiChannel'
     
+    cfg.topo.drop_rate = 0.1
+    
     
 def assert_cfg(cfg):
     """Checks config values invariants."""

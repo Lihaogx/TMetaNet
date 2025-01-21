@@ -203,4 +203,8 @@ def load_reddit_dataset(path, name):
     graphs = load_generic(os.path.join(path, name_dict[name]),
                             snapshot=cfg.transaction.snapshot,
                             snapshot_freq=cfg.transaction.snapshot_freq)
-    return graphs
+    filtered_graphs = list()
+    for g in graphs:
+        if g.num_edges >= 10:
+            filtered_graphs.append(g)
+    return filtered_graphs

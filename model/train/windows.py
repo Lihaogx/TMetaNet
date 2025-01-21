@@ -88,9 +88,8 @@ def windows_train(model, optimizer, graph_l, writer):
                 graph_train[idx + 1].edge_label = edge_label
                 graph_train[idx + 1].edge_label_index = edge_label_index
 
-                droprate = torch.FloatTensor(np.ones(shape=(1)) * cfg.windows.drop_rate)
-                masks = torch.bernoulli(1. - droprate).unsqueeze(1)
-                if masks[0][0]:
+                mask = torch.bernoulli(torch.tensor(1. - cfg.windows.drop_rate))
+                if mask.item():
                     losses = losses + loss
                     count += 1
                     window_mrr += mrr
@@ -210,7 +209,7 @@ def windows_test(graph_test, model, S_dw):
     return {'mrr': avg_mrr, 'avg_auc': avg_auc, 'rck1': rl1_avg, 'rck3': rl3_avg,
             'rck10': rl10_avg, 'accuracy': acc_avg, 'ap': ap_avg, 'f1': f1_avg, 'macro_auc': macro_auc_avg, 'micro_auc': micro_auc_avg}
 
-def train_windows(loggers, model, optimizer, scheduler, datasets,
+def train_windows(loggers, model, optimizer, scheduler, datasets, distance,
                       **kwargs):
     num_splits = len(loggers)
     
