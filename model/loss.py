@@ -87,3 +87,43 @@ def compute_loss(pred, true):
                          format(cfg.model.loss_fun))
 
 
+def compute_loss_version1(pred, true):
+    '''
+    :param pred: unnormalized prediction
+    :param true: label
+    :return: loss, normalized prediction score
+    '''
+    bce_loss = nn.BCEWithLogitsLoss(size_average=cfg.model.size_average)
+    mse_loss = nn.MSELoss(size_average=cfg.model.size_average)
+
+    # 创建新的张量而不是修改原始张量
+    pred_processed = pred.clone()
+    true_processed = true.clone()
+
+    # 处理多任务二分类情况
+    if true_processed.ndim > 1 and cfg.model.loss_fun == 'cross_entropy':
+        pred_processed = torch.flatten(pred_processed)
+        true_processed = torch.flatten(true_processed)
+    
+    # 使用clone()避免原地操作
+    if pred_processed.ndim > 1:
+        pred_processed = pred_processed.squeeze(-1).clone()
+    if true_processed.ndim > 1:
+        true_processed = true_processed.squeeze(-1).clone()
+
+    if cfg.model.loss_fun == 'cross_entropy':
+        # multiclass
+        if pred_processed.ndim > 1:
+            pred_softmax = F.log_softmax(pred_processed, dim=-1)
+            return F.nll_loss(pred_softmax, true_processed), pred_softmax
+        # binary
+        else:
+            true_float = true_processed.float()
+            pred_sigmoid = torch.sigmoid(pred_processed)
+            return bce_loss(pred_processed, true_float), pred_sigmoid
+    elif cfg.model.loss_fun == 'mse':
+        true_float = true_processed.float()
+        return mse_loss(pred_processed, true_float), pred_processed
+    else:
+        raise ValueError('Loss func {} not supported'.
+                         format(cfg.model.loss_fun))

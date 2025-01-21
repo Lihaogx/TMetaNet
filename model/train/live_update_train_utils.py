@@ -10,6 +10,23 @@ from utils.config import cfg
 from model.loss import compute_loss
 from torch_scatter import scatter_max, scatter_mean, scatter_min
 from tqdm import tqdm
+import math
+
+
+def adaptive_weight(distance, alpha0, gamma, delta):
+    if isinstance(distance, torch.Tensor):
+        return alpha0 / torch.sqrt(1 + gamma * distance)
+    return alpha0 / math.sqrt((1 + gamma * distance))
+
+def tanh_weight(distance, alpha0, gamma, delta):
+    return 0.5 * (1 - np.tanh(gamma * (distance - delta)))
+
+def sigmoid_weight(distance, alpha0, gamma, delta):
+    return alpha0 / (1 + np.exp(gamma * (distance - delta)))
+
+def exp_weight(distance, alpha0, gamma, delta):
+    return alpha0 * np.exp(-gamma * distance)
+
 
 
 def edge_index_difference(edge_all: torch.LongTensor,

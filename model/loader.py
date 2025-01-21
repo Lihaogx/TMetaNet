@@ -2,6 +2,8 @@ from utils.config import cfg
 from typing import Optional, List, Type
 import deepsnap
 import os
+import time
+from tqdm import tqdm
 import numpy as np
 from scipy.sparse import coo_matrix
 from deepsnap.graph import Graph
@@ -13,14 +15,38 @@ from model.network.roland_network import Roland
 from torch_geometric.data import Data
 from torch_geometric.utils import remove_self_loops, add_self_loops
 from model.roland_data_loader.roland_btc import load_btc_dataset
+from model.roland_data_loader.roland_reddit_hyperlink import load_reddit_dataset
 from model.network.WinGNN import WinGNN
+from topo_utils.homology_utils import compute_topo_diagram, compute_persistence_image
 import math
+from topo_utils.distance import compute_wasserstein_distance, compute_bottleneck_distance, compute_heat_distance
+from model.layer.cnn_layer import MultiChannelCNN, FusionCNN, AttentionFusionCNN, ResidualFusionCNN, DilatedResidualFusionCNN, ImprovedFusionCNN
+from model.roland_data_loader.roland_ucimsg import load_uci_dataset
+from model.roland_data_loader.roland_eth import load_eth_dataset
+distance_dict = {
+    'wasserstein': compute_wasserstein_distance,
+    'bottleneck': compute_bottleneck_distance,
+    'heat': compute_heat_distance
+}
 network_dict = {
     'roland': Roland,
     'wingnn': WinGNN
 }
 loader_dict={
     'bitcoin-alpha': load_btc_dataset,
+    'bitcoin-otc': load_btc_dataset,
+    'reddit-body': load_reddit_dataset,
+    'reddit-title': load_reddit_dataset,
+    'uci-msg': load_uci_dataset,
+    'ethereum': load_eth_dataset,
+}
+meta_model_dict={
+    'MultiChannel': MultiChannelCNN,
+    'Fusion': FusionCNN,
+    'Attention': AttentionFusionCNN,
+    'Residual': ResidualFusionCNN,
+    'DilatedResidual': DilatedResidualFusionCNN,
+    'ImprovedFusion': ImprovedFusionCNN,
 }
 def read_npz(path):
     filesname = os.listdir(path)
@@ -37,7 +63,7 @@ def read_npz(path):
 
 
 def create_dataset():
-    path = "dataset/" + cfg.dataset.name
+    path = "/home/lh/Dowzag_2.0/dataset/" + cfg.dataset.name
     # 
     if cfg.train.mode == 'windows':
         path_ei = path + '/' + 'edge_index/'
@@ -116,8 +142,8 @@ def create_dataset():
             edge_labe_index = dataset.graphs[0].edge_label_index
             graph_l[idx].edge_label_index = torch.LongTensor(edge_labe_index)
         
-    # elif cfg.model.type == 'roland':
-    #     graph_l = loader_dict[cfg.dataset.name](path, cfg.dataset.name)
+    elif cfg.model.type == 'roland':
+        graph_l = loader_dict[cfg.dataset.name](path, cfg.dataset.name)
         
     if cfg.dataset.task_splitting == 'temporal':
 
@@ -147,6 +173,80 @@ def create_dataset():
         raise ValueError(f"Invalid task splitting method: {cfg.task_splitting}")
     return datasets
 
+
+def load_topo_dataset(datasets):
+    path = "/home/lh/Dowzag_2.0/dataset/" + cfg.dataset.name + "/topo_feature/"
+    window_size = cfg.topo.window_size
+    remove_edge = cfg.topo.remove_edge
+    is_directed = cfg.topo.is_directed
+    topo_diagrams = []
+    topo_features_list = []
+    for filtration in cfg.topo.filtration:
+        epsilon, delta = filtration
+            # 生成文件名
+        filename = f"topo_diagram_w{window_size}_e{epsilon}_d{delta}_r{remove_edge}_d{is_directed}.pt"
+        filepath = os.path.join(path, filename)
+        
+        # 检查文件是否存在
+        if os.path.exists(filepath):
+            print(f"Loading cached topo diagram from {filepath}")
+            topo_diagram = torch.load(filepath)
+            topo_diagrams.append(topo_diagram)
+        else:
+            print(f"Computing topo diagram for {filename}")
+            if cfg.model.type == 'roland':
+                edge_sequences = []
+                for i in range(len(datasets[0])):
+                    # 收集所有数据集中第i个图的边
+                    edge_indices = []
+                    edge_labels = []
+                    for dataset in datasets:
+                        edge_indices.append(dataset[i].edge_label_index)
+                        edge_labels.append(dataset[i].edge_label)
+                    # 分别处理每个数据集的边
+                    existing_edges_list = []
+                    for edge_idx, edge_lab in zip(edge_indices, edge_labels):
+                        # 只保留存在的边(label=1)
+                        existing_edges = edge_idx[:, edge_lab==1]
+                        existing_edges_list.append(existing_edges)
+                    # 将每个数据集的边合并
+                    existing_edges = torch.cat(existing_edges_list, dim=1)
+                    edge_sequences.append(existing_edges)
+            else:
+                raise ValueError("Please use Roland-type datasets for computing topological features")
+            topo_diagram = compute_topo_diagram(edge_sequences, window_size, epsilon, delta, remove_edge, is_directed)
+            torch.save(topo_diagram, filepath)
+            topo_diagrams.append(topo_diagram)
+        # 计算0维和1维的persistence image
+        diagram_features = [
+            compute_persistence_image(dim, topo_diagram, [cfg.topo.resolution]*2, window_size, cfg.topo.bandwidth, cfg.topo.power)
+            for dim in [0,1]
+        ]
+        # 转换为tensor
+        topo_features = [torch.tensor(f, dtype=torch.float) for f in diagram_features]
+        topo_features = torch.stack(topo_features, dim=1)
+        
+        topo_features_list.append(topo_features)
+    topo_features = torch.cat(topo_features_list, dim=1)
+    distance = []
+    for i in tqdm(range(len(topo_diagrams[0]) - 1)):
+        dist = 0
+        for j in range(len(topo_diagrams)):
+            dist += distance_dict[cfg.topo.distance](topo_diagrams[j][i], topo_diagrams[j][i+1])
+        distance.append(dist)
+    # 对distance进行归一化处理
+    distance = torch.tensor(distance)
+    if len(distance) > 0:  # 确保distance不为空
+        distance = (distance - distance.min()) / (distance.max() - distance.min() + 1e-8)  # 添加小量避免除零
+    distance = distance.tolist()
+    return topo_diagrams, topo_features, distance
+    
+def create_meta_model(dim_out=1, to_device=True):
+    meta_model = meta_model_dict[cfg.topo.meta_type](dim_out)
+    if to_device:
+        meta_model.to(torch.device(cfg.device))
+    return meta_model
+
 def create_model(
     datasets: Optional[List[deepsnap.dataset.GraphDataset]] = None,
     to_device: bool = True,
@@ -166,10 +266,12 @@ def create_model(
         The constructed pytorch model.
     """
     # FIXME: num_node_features/num_labels not working properly for HeteroGraph.
-    dim_in = cfg.dataset.node_dim
-    dim_out = 2
-    # dim_in = datasets[0].num_node_features if dim_in is None else dim_in
-    # dim_out = datasets[0].num_labels if dim_out is None else dim_out
+    if cfg.model.type == 'roland':
+        dim_in = datasets[0].num_node_features if dim_in is None else dim_in
+        dim_out = datasets[0].num_labels if dim_out is None else dim_out
+    else:
+        dim_in = cfg.dataset.node_dim
+        dim_out = cfg.dataset.edge_dim
     if 'classification' in cfg.dataset.task_type and dim_out == 2:
         # binary classification, output dim = 1
         dim_out = 1

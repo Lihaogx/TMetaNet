@@ -106,6 +106,8 @@ def set_cfg(cfg):
     cfg.train.stop_live_update_after = 9999999
 
     cfg.train.internal_validation_tolerance = 5
+    
+    cfg.train.memory_steps = 5
     # ------------------------------------------------------------------------ #
     # Model options
     # ------------------------------------------------------------------------ #
@@ -189,12 +191,18 @@ def set_cfg(cfg):
 
     # Base learning rate
     cfg.optim.base_lr = 0.01
+    
+    cfg.optim.meta_lr = 0.01
 
+    cfg.optim.meta_weight_decay = 5e-2
+    
     # L2 regularization
     cfg.optim.weight_decay = 5e-4
 
     # SGD momentum
     cfg.optim.momentum = 0.9
+    
+    cfg.optim.meta_loop = 10
 
     # scheduler: none, steps, cos
     cfg.optim.scheduler = 'cos'
@@ -323,13 +331,13 @@ def set_cfg(cfg):
     cfg.link_pred_spec.forecast_horizon = 7
 
         # For meta-learning.
-    cfg.meta = CN()
+    cfg.roland = CN()
     # Whether to do meta-learning via initialization moving average.
     # Default to False.
-    cfg.meta.is_meta = True
+    cfg.roland.is_meta = True
 
     # choose between 'moving_average' and 'online_mean'
-    cfg.meta.method = 'moving_average'
+    cfg.roland.method = 'moving_average'
     # For online mean:
     # new_mean = (n-1)/n * old_mean + 1/n * new_value.
     # where *_mean corresponds to W_init.
@@ -339,7 +347,7 @@ def set_cfg(cfg):
     # Set W_init = (1-alpha) * W_init + alpha * M[t].
     # For the next period, use W_init as the initialization for fine-tune
     # Set cfg.meta.alpha = 1.0 to recover the original algorithm.
-    cfg.meta.alpha = 0.8
+    cfg.roland.alpha = 0.8
 
     
     cfg.windows = CN()
@@ -351,6 +359,39 @@ def set_cfg(cfg):
     cfg.windows.drop_rate = 0.4
     
     cfg.windows.beta = 0.5
+    
+    
+    cfg.topo = CN()
+    
+    cfg.topo.use_topo = False
+    # pixel resolution
+    cfg.topo.resolution = 50
+    
+    cfg.topo.filtration = [[1,1]]
+    
+    cfg.topo.remove_edge = 'kshell'
+        
+    cfg.topo.remove_ratio = 1.0
+    
+    cfg.topo.window_size = 20
+    
+    cfg.topo.dropout = 0.2
+    
+    cfg.topo.bandwidth = 1.0
+    
+    cfg.topo.power = 1.0
+    
+    cfg.topo.is_directed = False
+    
+    cfg.topo.distance = 'wasserstein'
+    
+    cfg.topo.gamma = 0.1
+    
+    cfg.topo.weight_method = 'exp'
+    
+    cfg.topo.delta = 0.0
+    
+    cfg.topo.meta_type = 'MultiChannel'
     
     
 def assert_cfg(cfg):

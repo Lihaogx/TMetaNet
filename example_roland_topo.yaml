@@ -1,0 +1,121 @@
+print: both
+device: auto
+out_dir: results
+cfg_dest: config.yaml
+seed: 1
+round: 4
+tensorboard_each_run: false
+tensorboard_agg: true
+num_workers: 0
+num_threads: 6
+metric_best: auto
+view_emb: false
+dataset:
+  name: bitcoin-alpha
+  task: link_pred
+  task_type: classification
+  task_splitting: within
+  split:
+  - 0.8
+  - 0.1
+  - 0.1
+  edge_encoder: true
+  edge_encoder_bn: true
+  edge_dim: 128
+train:
+  mode: live_update_topo
+  epoch_resume: -1
+  ckpt_clean: true
+  stop_live_update_after: 9999999
+  internal_validation_tolerance: 20
+model:
+  type: roland
+  loss_fun: cross_entropy
+  size_average: true
+  thresh: 0.5
+  edge_decoding: concat
+gnn:
+  layers_mp: 2
+  dim_inner: 64
+  layer_type: residual_edge_conv
+  batchnorm: true
+  act: prelu
+  dropout: 0.0
+  agg: add
+  normalize_adj: false
+  msg_direction: single
+  att_heads: 1
+  l2norm: true
+  skip_connection: affine
+optim:
+  optimizer: adam
+  base_lr: 0.01
+  weight_decay: 0.0005
+  momentum: 0.9
+  scheduler: cos
+  meta_lr: 0.05
+  meta_weight_decay: 0.0005
+  steps:
+  - 30
+  - 60
+  - 90
+  lr_decay: 0.1
+  max_epoch: 100
+bn:
+  eps: 1.0e-05
+  mom: 0.1
+mem:
+  inplace: false
+experimental:
+  rank_eval_multiplier: 1000
+transaction:
+  snapshot: false
+  snapshot_num: 100
+  snapshot_freq: D
+  check_snapshot: false
+  history: full
+  loss: meta
+  feature_int_dim: 32
+  feature_node_int_num:
+  - 0
+  feature_amount_dim: 64
+  feature_time_dim: 64
+  node_feature: raw
+  horizon: 1
+  pred_mode: before
+  time_enc_periods:
+  - 1
+  time_enc_mode: enc_before_diff
+  keep_ratio: linear
+metric:
+  mrr_method: max
+link_pred_spec:
+  forecast_frequency: 1
+  forecast_horizon: 7
+roland:
+  is_meta: true
+  method: moving_average
+  alpha: 0.8
+windows:
+  window_size: 7
+  maml_lr: 0.006
+  drop_rate: 0.4
+  beta: 0.5
+topo:
+  use_topo: true
+  meta_type: Residual
+  resolution: 50
+  filtration:
+  - - 1
+    - 1
+  remove_edge: 'off'
+  remove_ratio: 1.0
+  window_size: 10000
+  dropout: 0.2
+  bandwidth: 2.0
+  power: 2.0
+  is_directed: false
+  distance: wasserstein
+  gamma: 0.1
+  weight_method: exp
+  delta: 0.0

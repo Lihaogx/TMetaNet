@@ -12,12 +12,19 @@ import numpy as np
 import torch
 from model.checkpoint import clean_ckpt
 from utils.config import cfg
-from model.train import roland_train_utils
+from model.train.live_update_train_utils import edge_index_difference, gen_negative_edges, get_keep_ratio, move_batch_to_device, report_rank_based_eval, exp_weight, sigmoid_weight, tanh_weight, adaptive_weight
 from model.loss import compute_loss
 from model.utils import create_optimizer, create_scheduler
 from utils.config import makedirs_rm_exist
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+
+weight_dict = {
+    'exp': exp_weight,
+    'sigmoid': sigmoid_weight,
+    'tanh': tanh_weight,
+    'adaptive': adaptive_weight,
+}
 
 def node_degree(edge_index, n=None, mode='in'):
     if mode == 'in':
@@ -64,7 +71,7 @@ def precompute_edge_degree_info(dataset):
         dataset[t].node_degree_new = node_degree(dataset[t].edge_index,
                                                  n=num_nodes)
 
-        dataset[t].keep_ratio = roland_train_utils.get_keep_ratio(
+        dataset[t].keep_ratio = get_keep_ratio(
             existing=dataset[t].node_degree_existing,
             new=dataset[t].node_degree_new,
             mode=cfg.transaction.keep_ratio)
@@ -114,7 +121,7 @@ def get_task_batch(dataset: deepsnap.dataset.GraphDataset,
             copied = [x.detach().clone() for x in val]
             setattr(batch, key, copied)
 
-    batch = roland_train_utils.move_batch_to_device(batch, cfg.device)
+    batch = move_batch_to_device(batch, cfg.device)
     return batch
 
 
@@ -201,7 +208,7 @@ def evaluate_step(model, dataset, task: Tuple[int, int],
     mrr_batch = get_task_batch(dataset, today, tomorrow,
                                prev_node_states).clone()
 
-    mrr, rck1, rck3, rck10 = roland_train_utils.report_rank_based_eval(
+    mrr, rck1, rck3, rck10 = report_rank_based_eval(
         mrr_batch, model,
         num_neg_per_node=cfg.experimental.rank_eval_multiplier)
 
@@ -209,7 +216,7 @@ def evaluate_step(model, dataset, task: Tuple[int, int],
             'rck10': rck10, 'micro_auc': micro_auc, 'macro_auc': macro_auc, 'accuracy': accuracy}
 
 
-def train_live_update(loggers, model, optimizer, scheduler, datasets,
+def train_live_update(loggers, model, optimizer, scheduler, datasets, distance,
                       **kwargs):
 
     for dataset in datasets:
@@ -269,7 +276,7 @@ def train_live_update(loggers, model, optimizer, scheduler, datasets,
             # choose the best model using current validation set, prepare for
             # next task.
 
-            if cfg.meta.is_meta and (model_init is not None):
+            if cfg.roland.is_meta and (model_init is not None):
                 # For meta-learning, start fine-tuning from the pre-computed
                 # initialization weight.
                 model.load_state_dict(copy.deepcopy(model_init))
@@ -309,17 +316,20 @@ def train_live_update(loggers, model, optimizer, scheduler, datasets,
             # contains information up to time t.
             # Use the best model selected from intra-snapshot cross-validation.
             model.load_state_dict(best_model['state'])
-
-        if cfg.meta.is_meta:  # update meta-learning's initialization weights.
+            
+        if cfg.roland.is_meta:  # update meta-learning's initialization weights.
             if model_init is None:  # for the first task.
                 model_init = copy.deepcopy(best_model['state'])
             else:  # for subsequent task, update init.
-                if cfg.meta.method == 'moving_average':
-                    new_weight = cfg.meta.alpha
-                elif cfg.meta.method == 'online_mean':
+                if cfg.roland.method == 'moving_average':
+                    if cfg.topo.weight_method == 'off':
+                        new_weight = cfg.roland.alpha
+                    else:
+                        new_weight = weight_dict[cfg.topo.weight_method](distance[t], cfg.roland.alpha, cfg.topo.gamma, cfg.topo.delta)
+                elif cfg.roland.method == 'online_mean':
                     new_weight = 1 / (t + 1)  # for t=1, the second item, 1/2.
                 else:
-                    raise ValueError(f'Invalid method: {cfg.meta.method}')
+                    raise ValueError(f'Invalid method: {cfg.roland.method}')
 
                 # (1-new_weight)*model_init + new_weight*best_model.
                 model_init = average_state_dict(model_init,

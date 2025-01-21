@@ -9,8 +9,6 @@ import torch
 import torch.nn as nn
 from torch import optim as optim
 from utils.config import cfg
-from torch_scatter import scatter_max, scatter_mean, scatter_min
-from model.loss import prediction
 
 
 def create_optimizer(opt, model, lr, weight_decay, get_num_layer=None, get_layer_scale=None):
@@ -57,7 +55,7 @@ def create_scheduler(optimizer):
 
 def create_activation(activation):
     if activation == "relu":
-        return nn.ReLU()
+        return nn.ReLU
     elif activation == "tanh":
         return nn.Tanh()
     elif activation == "sigmoid":

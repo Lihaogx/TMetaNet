@@ -14,12 +14,35 @@ import pandas as pd
 import torch
 from deepsnap.graph import Graph
 from sklearn.preprocessing import MinMaxScaler
+import types
+from model.roland_data_loader.loader_utils import make_graph_snapshot
 
-from graphgym.config import cfg
-from graphgym.contrib.loader.loader_utils import make_graph_snapshot
-from graphgym.register import register_loader
-from graphgym.utils.stats import node_degree
 
+cfg_dict = {
+    "transaction": {
+        "snapshot": True,
+        "snapshot_freq": 'W',
+    },
+    "train": {
+        "mode": "live_update"
+    },
+    "gnn": {
+        "layers_mp": 2,
+        "noise": 0.0
+    },
+    "dataset": {
+        "split_method": "default"
+    }
+}
+def dict_to_namespace(d):
+    namespace = types.SimpleNamespace()
+    for key, value in d.items():
+        if isinstance(value, dict):
+            setattr(namespace, key, dict_to_namespace(value))
+        else:
+            setattr(namespace, key, value)
+    return namespace
+cfg = dict_to_namespace(cfg_dict)
 
 def load_single_dataset(dataset_dir: str) -> Graph:
     # Load dataset using dask for fast parallel loading.
@@ -110,27 +133,26 @@ def load_generic(dataset_dir: str,
 
     return snapshot_list
 
+name_dict = {
+    'uci-msg': 'CollegeMsg.txt',
+}
 
-def load_generic_dataset(format, name, dataset_dir):
-    if format == 'uci_message':
-        graphs = load_generic(os.path.join(dataset_dir, name),
-                              snapshot=cfg.transaction.snapshot,
-                              snapshot_freq=cfg.transaction.snapshot_freq)
-        if cfg.dataset.split_method == 'chronological_temporal':
-            # return graphs
-            filtered_graphs = list()
-            for g in graphs:
-                if g.num_edges >= 2:
-                    filtered_graphs.append(g)
-            return filtered_graphs
-        else:
-            # The default split (80-10-10) requires at least 10 edges each
-            # snapshot.
-            filtered_graphs = list()
-            for g in graphs:
-                if g.num_edges >= 10:
-                    filtered_graphs.append(g)
-            return filtered_graphs
-
-
-register_loader('roland_uci_message', load_generic_dataset)
+def load_uci_dataset(path, name):
+    graphs = load_generic(os.path.join(path, name_dict[name]),
+                            snapshot=cfg.transaction.snapshot,
+                            snapshot_freq=cfg.transaction.snapshot_freq)
+    # if cfg.dataset.split_method == 'chronological_temporal':
+    #     # return graphs
+    #     filtered_graphs = list()
+    #     for g in graphs:
+    #         if g.num_edges >= 2:
+    #             filtered_graphs.append(g)
+    #     return filtered_graphs
+    # else:
+    #     # The default split (80-10-10) requires at least 10 edges each
+    #     # snapshot.
+    filtered_graphs = list()
+    for g in graphs:
+        if g.num_edges >= 10:
+            filtered_graphs.append(g)
+    return filtered_graphs

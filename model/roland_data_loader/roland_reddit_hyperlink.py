@@ -193,10 +193,14 @@ def load_generic(dataset_dir: str,
 
         return snapshot_list
 
+name_dict = {
+    'reddit-body': 'reddit-body.tsv',
+    'reddit-title': 'reddit-title.tsv',
+}
 
-def load_generic_dataset(format, name, dataset_dir):
-    if format == 'reddit_hyperlink':
-        graphs = load_generic(os.path.join(dataset_dir, name),
-                              snapshot=cfg.transaction.snapshot,
-                              snapshot_freq=cfg.transaction.snapshot_freq)
-        return graphs
+
+def load_reddit_dataset(path, name):
+    graphs = load_generic(os.path.join(path, name_dict[name]),
+                            snapshot=cfg.transaction.snapshot,
+                            snapshot_freq=cfg.transaction.snapshot_freq)
+    return graphs
