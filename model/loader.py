@@ -173,7 +173,7 @@ def load_topo_dataset(datasets):
             # 生成文件名
         filename = f"topo_diagram_w{window_size}_e{epsilon}_d{delta}_r{remove_edge}_d{is_directed}.pt"
         filepath = os.path.join(path, filename)
-        
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         # 检查文件是否存在
         if os.path.exists(filepath):
             print(f"Loading cached topo diagram from {filepath}")
@@ -200,7 +200,31 @@ def load_topo_dataset(datasets):
                     existing_edges = torch.cat(existing_edges_list, dim=1)
                     edge_sequences.append(existing_edges)
             else:
-                raise ValueError("Please use Roland-type datasets for computing topological features")
+                edge_sequences_train = []
+                edge_sequences_test = []
+                for dataset in datasets[0]:
+                    edge_indices = []
+                    edge_labels = []
+                    edge_indices.append(dataset.edge_label_index)
+                    edge_labels.append(dataset.edge_label)
+                    existing_edges_list = []
+                    for edge_idx, edge_lab in zip(edge_indices, edge_labels):
+                        existing_edges = edge_idx[:, edge_lab==1]
+                        existing_edges_list.append(existing_edges)
+                    existing_edges = torch.cat(existing_edges_list, dim=1)
+                    edge_sequences_train.append(existing_edges)
+                for dataset in datasets[1]:
+                    edge_indices = []
+                    edge_labels = []
+                    edge_indices.append(dataset.edge_label_index)
+                    edge_labels.append(dataset.edge_label)
+                    existing_edges_list = []
+                    for edge_idx, edge_lab in zip(edge_indices, edge_labels):
+                        existing_edges = edge_idx[:, edge_lab==1]
+                        existing_edges_list.append(existing_edges)
+                    existing_edges = torch.cat(existing_edges_list, dim=1)
+                    edge_sequences_test.append(existing_edges)
+                edge_sequences = edge_sequences_train + edge_sequences_test
             topo_diagram = compute_topo_diagram(edge_sequences, window_size, epsilon, delta, remove_edge, is_directed)
             torch.save(topo_diagram, filepath)
             topo_diagrams.append(topo_diagram)
@@ -209,10 +233,15 @@ def load_topo_dataset(datasets):
             compute_persistence_image(dim, topo_diagram, [cfg.topo.resolution]*2, window_size, cfg.topo.bandwidth, cfg.topo.power)
             for dim in [0,1]
         ]
-        # 转换为tensor
-        topo_features = [torch.tensor(f, dtype=torch.float) for f in diagram_features]
+        if cfg.topo.image_type == 'topo':
+            # 转换为tensor
+            image_features = diagram_features
+        elif cfg.topo.image_type == 'random':
+            image_features = [torch.randn_like(torch.tensor(f, dtype=torch.float)) for f in diagram_features]
+        elif cfg.topo.image_type == 'distribution':
+            image_features = [torch.normal(mean=torch.mean(torch.tensor(f, dtype=torch.float)), std=torch.std(torch.tensor(f, dtype=torch.float)), size=torch.tensor(f, dtype=torch.float).size()) for f in diagram_features]
+        topo_features = [torch.tensor(f, dtype=torch.float) for f in image_features]
         topo_features = torch.stack(topo_features, dim=1)
-        
         topo_features_list.append(topo_features)
     topo_features = torch.cat(topo_features_list, dim=1)
     distance = []

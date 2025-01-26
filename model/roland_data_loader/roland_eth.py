@@ -12,7 +12,7 @@ from sklearn.preprocessing import MinMaxScaler, OrdinalEncoder
 cfg_dict = {
     "transaction": {
         "snapshot": True,
-        "snapshot_freq": '1200000s',
+        "snapshot_freq": 'D',
     },
     "train": {
         "mode": "live_update"
@@ -170,7 +170,7 @@ def load_generic(dataset_dir: str,
     return snapshot_list
 
 name_dict = {
-    'ethereum': 'networktronixTX.txt',
+    'ethereum': 'networkyocoinTX.txt',
 }
 
 def load_eth_dataset(path, name):

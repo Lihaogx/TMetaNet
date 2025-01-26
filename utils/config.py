@@ -395,6 +395,8 @@ def set_cfg(cfg):
     
     cfg.topo.drop_rate = 0.1
     
+    cfg.topo.image_type = 'topo'
+    
     
 def assert_cfg(cfg):
     """Checks config values invariants."""

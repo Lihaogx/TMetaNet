@@ -30,8 +30,8 @@ def generate_learning_rates(meta_model, features):
     # 使用ReLU+clamp的组合来限制学习率范围
     # ReLU确保学习率非负,clamp进一步限制上界
     # 这样可以避免sigmoid在接近0和1时梯度消失的问题
-    # learning_rates = torch.sigmoid(learning_rates) * 0.5  # 将学习率限制在0到0.1之间
-    learning_rates = torch.clamp(torch.relu(learning_rates), min=1e-4, max=1.0)
+    learning_rates = torch.sigmoid(learning_rates) * cfg.windows.maml_lr  # 将学习率限制在0到0.1之间
+    # learning_rates = torch.clamp(torch.relu(learning_rates), min=1e-4, max=1.0)
     return learning_rates
 
 def windows_train(model,meta_model, optimizer, meta_optimizer, graph_l, writer, topo_features):
@@ -91,7 +91,7 @@ def windows_train(model,meta_model, optimizer, meta_optimizer, graph_l, writer, 
                 learning_rates = generate_learning_rates(meta_model, topo_features[idx] - topo_features[idx - 1])
                 with torch.no_grad():  # 使用no_grad来避免创建新的计算图
                     for param, g, s, lr in zip([param for param in model.parameters() if param.requires_grad], grad, S_dw, learning_rates):
-                        param.data = param.data - lr / (torch.sqrt(s) + 1e-8) * g
+                        param.data = param.data - lr * g
                 
                 # 第二次前向传播
                 graph_train[idx + 1] = graph_train[idx + 1].to(device)
@@ -180,7 +180,7 @@ def windows_test(graph_test, model, meta_model, S_dw, topo_features):
 
         learning_rates = generate_learning_rates(meta_model, topo_features[idx] - topo_features[idx - 1])
         for param, g, s, lr in zip([param for param in model.parameters() if param.requires_grad], grad, S_dw, learning_rates):
-            param.data = param.data - lr / (torch.sqrt(s) + 1e-8) * g
+            param.data = param.data - lr * g
 
         graph_test[idx + 1] = graph_test[idx + 1].to(device)
         graph_test[idx + 1].node_feature = graph_test[idx + 1].node_feature.to(device)

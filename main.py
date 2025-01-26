@@ -42,7 +42,7 @@ def dataset_cfg_setup_live_update(name: str):
     Setup required fields in cfg for the given dataset.
     """
 
-    if name in ['bitcoin-otc', 'bitcoin-alpha']:
+    if name in ['bitcoin-otc', 'bitcoin-alpha', 'bitcoin-alpha_escape_10', 'bitcoin-alpha_escape_20', 'bitcoin-alpha_escape_50', 'bitcoin-alpha_poison_10', 'bitcoin-alpha_poison_20', 'bitcoin-alpha_poison_50']:
         cfg.dataset.node_dim = 1
         cfg.dataset.edge_dim = 2
         cfg.transaction.snapshot_freq = 'W'
@@ -52,7 +52,7 @@ def dataset_cfg_setup_live_update(name: str):
         cfg.dataset.edge_dim = 1
         cfg.transaction.snapshot_freq = 'W'
         
-    elif name in ['reddit-body', 'reddit-title']:
+    elif name in ['reddit-body', 'reddit-title', 'reddit-title_escape_5', 'reddit-title_escape_10', 'reddit-title_escape_20', 'reddit-title_escape_30', 'reddit-title_poison_5', 'reddit-title_poison_10', 'reddit-title_poison_20', 'reddit-title_poison_30']:
         cfg.dataset.node_dim = 300
         cfg.dataset.edge_dim = 88
         cfg.transaction.snapshot_freq = 'W'
@@ -63,7 +63,7 @@ def dataset_cfg_setup_live_update(name: str):
     elif name in ['ethereum']:
         cfg.dataset.node_dim = 1
         cfg.dataset.edge_dim = 2
-        cfg.transaction.snapshot_freq = '1200000s'
+        cfg.transaction.snapshot_freq = 'D'
 
     else:
         raise ValueError(f'No default config for dataset {name}.')
