@@ -3,14 +3,14 @@ import torch
 from topo_utils.homology_utils import compute_persistence_image
 
 def compute_topo_features(args):
-    """计算拓扑特征
+    """Compute topological features
     
     Args:
-        edge_sequences: 边序列列表
-        args: 配置参数
+        edge_sequences: List of edge sequences
+        args: Configuration parameters
         
     Returns:
-        topo_features: 拓扑特征张量
+        topo_features: Topological feature tensor
     """
     topo_features_list = []
 
@@ -21,29 +21,29 @@ def compute_topo_features(args):
     
     for filtration in args.topo.filtration:
         epsilon, delta = filtration
-        # 生成文件名
+        # Generate filename
         filename = f"topo_diagram_w{window_size}_e{epsilon}_d{delta}_r{remove_edge}_d{is_directed}.pt"
         filepath = os.path.join(path, filename)
         
-        # 检查文件是否存在
+        # Check if file exists
         if os.path.exists(filepath):
-            print(f"从{filepath}加载缓存的拓扑图")
+            print(f"Loading cached topology diagram from {filepath}")
             topo_diagram = torch.load(filepath)
         else:
-            print(f"无法计算{filename}的拓扑图")
-            raise ValueError(f"未找到缓存的拓扑图文件{filepath}")
+            print(f"Cannot compute topology diagram for {filename}")
+            raise ValueError(f"Cached topology diagram file not found: {filepath}")
             
-        # 计算0维和1维的persistence image
+        # Compute persistence image for 0D and 1D
         diagram_features = [
             compute_persistence_image(dim, topo_diagram, [args.topo.resolution]*2, window_size, args.topo.bandwidth, args.topo.power)
             for dim in [0,1]
         ]
                 
-        # 转换为tensor
+        # Convert to tensor
         topo_features = [torch.tensor(f, dtype=torch.float) for f in diagram_features]
         topo_features = torch.stack(topo_features, dim=1)
         topo_features_list.append(topo_features)
         
-    # 将所有特征拼接在一起
+    # Concatenate all features
     topo_features = torch.cat(topo_features_list, dim=1)
     return topo_features

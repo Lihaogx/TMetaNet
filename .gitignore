@@ -13,6 +13,7 @@ results/*
 
 nohup.out
 
+significance.py
 nohup_logs/*
 
 config/*
@@ -27,7 +28,16 @@ dataset/*
 preprocess/*
 !preprocess/.gitkeep
 
+.specstory
 *.csv
+
+ER_graph.py
+generate_dynamic_network.py
+
+plot/*
+
+noise/*
+
 # 通用的系统文件
 .DS_Store
 Thumbs.db

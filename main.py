@@ -16,7 +16,6 @@ from tqdm import tqdm
 from model.network import WinGNN
 from utils.config import cfg, update_out_dir, assert_cfg, dump_cfg
 from utils.logger import setup_printing, create_logger
-from deepsnap.graph import Graph
 from model.loader import create_dataset, create_model, load_topo_dataset, create_meta_model
 from model.utils import create_optimizer, create_scheduler
 from utils.devices import auto_select_device
@@ -42,7 +41,7 @@ def dataset_cfg_setup_live_update(name: str):
     Setup required fields in cfg for the given dataset.
     """
 
-    if name in ['bitcoin-otc', 'bitcoin-alpha', 'bitcoin-alpha_escape_10', 'bitcoin-alpha_escape_20', 'bitcoin-alpha_escape_50', 'bitcoin-alpha_poison_10', 'bitcoin-alpha_poison_20', 'bitcoin-alpha_poison_50']:
+    if name in ['bitcoin-otc', 'bitcoin-alpha']:
         cfg.dataset.node_dim = 1
         cfg.dataset.edge_dim = 2
         cfg.transaction.snapshot_freq = 'W'
@@ -71,8 +70,8 @@ def dataset_cfg_setup_live_update(name: str):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=True, help='配置文件路径')
-    parser.add_argument('--repeats', type=int, required=True, help='重复次数')
+    parser.add_argument('--config', type=str, required=True, help='Path to configuration file')
+    parser.add_argument('--repeats', type=int, required=True, help='Number of experiment repetitions')
     args = parser.parse_args()
     
     for i in range(args.repeats):

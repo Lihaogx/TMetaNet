@@ -245,7 +245,10 @@ def train_live_update(loggers, model, optimizer, scheduler, datasets, distance,
 
     auc_hist = list()
     mrr_hist = list()
+    time_per_snapshot = []
+
     for t in tqdm(task_range, desc='snapshot', leave=True):
+        start_time = datetime.datetime.now()
         # current task: t --> t+1.
         # (1) Evaluate model's performance on this task, at this time, the
         # model has seen no information on t+1, this evaluation is fair.
@@ -322,10 +325,7 @@ def train_live_update(loggers, model, optimizer, scheduler, datasets, distance,
                 model_init = copy.deepcopy(best_model['state'])
             else:  # for subsequent task, update init.
                 if cfg.roland.method == 'moving_average':
-                    if cfg.topo.weight_method == 'off':
-                        new_weight = cfg.roland.alpha
-                    else:
-                        new_weight = weight_dict[cfg.topo.weight_method](distance[t], cfg.roland.alpha, cfg.topo.gamma, cfg.topo.delta)
+                    new_weight = cfg.roland.alpha
                 elif cfg.roland.method == 'online_mean':
                     new_weight = 1 / (t + 1)  # for t=1, the second item, 1/2.
                 else:
@@ -339,6 +339,11 @@ def train_live_update(loggers, model, optimizer, scheduler, datasets, distance,
         prev_node_states = update_node_states(model, datasets[0], (t, t + 1),
                                               prev_node_states)
 
+        end_time = datetime.datetime.now()
+        time_delta = (end_time - start_time).total_seconds()
+        time_per_snapshot.append(time_delta)
+    avg_time = sum(time_per_snapshot) / len(time_per_snapshot)
+    print(f"Average time per snapshot: {avg_time:.2f} seconds")
     writer.close()
 
     if cfg.train.ckpt_clean:

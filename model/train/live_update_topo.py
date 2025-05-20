@@ -287,8 +287,10 @@ def train_live_update_topo(loggers, model, meta_model, optimizer, scheduler, met
     model_init = None  # for meta-learning only, a model.state_dict() object.
     auc_hist = list()
     mrr_hist = list()
-    for t in tqdm(task_range, desc='snapshot', leave=True):
+    time_per_snapshot = []
 
+    for t in tqdm(task_range, desc='snapshot', leave=True):
+        start_time = datetime.datetime.now()
         for i in range(1, num_splits):
             
             if i == 1:
@@ -430,6 +432,15 @@ def train_live_update_topo(loggers, model, meta_model, optimizer, scheduler, met
         
         prev_node_states = update_node_states(model, datasets[0], (t, t + 1),
                                               prev_node_states)
+        
+        # 计算并记录当前时间片的耗时
+        end_time = datetime.datetime.now()
+        time_delta = (end_time - start_time).total_seconds()
+        time_per_snapshot.append(time_delta)
+        
+    # 计算并打印平均耗时
+    avg_time = sum(time_per_snapshot) / len(time_per_snapshot)
+    print(f"Average time per snapshot: {avg_time:.2f} seconds")
 
     writer.close()
 

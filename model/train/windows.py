@@ -27,8 +27,9 @@ def windows_train(model, optimizer, graph_l, writer):
     best_param = {'best_mrr': 0, 'best_state': None, 'best_s_dw': None}
     earl_stop_c = 0
     epoch_count = 0
-
+    time_per_snapshot = []
     for epoch in tqdm(range(cfg.optim.max_epoch)):
+        start_time = datetime.datetime.now()
         # Keep a version of the data without gradient calculation
         graph_l_cpy = deepcopy(graph_l)
         all_mrr = 0.0
@@ -117,6 +118,11 @@ def windows_train(model, optimizer, graph_l, writer):
             earl_stop_c += 1
             if earl_stop_c == 10:
                 break
+        end_time = datetime.datetime.now()
+        time_delta = (end_time - start_time).total_seconds()
+        time_per_snapshot.append(time_delta)
+    avg_time = sum(time_per_snapshot) / len(time_per_snapshot)
+    print(f"Average time per snapshot: {avg_time:.2f} seconds")
     return best_param
 
 def windows_test(graph_test, model, S_dw):

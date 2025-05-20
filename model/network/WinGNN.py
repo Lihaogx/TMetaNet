@@ -10,7 +10,6 @@ import dgl.function as fn
 from dgl.utils import expand_as_pair
 from utils.config import cfg
 from dgl.nn.pytorch.conv import GraphConv
-from torch_scatter import scatter_add
 from copy import deepcopy
 from model.layer.windows_layer import Windows_GCNLayer
 

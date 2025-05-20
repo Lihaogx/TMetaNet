@@ -6,7 +6,6 @@ import logging
 from utils.config import cfg
 import json
 import pdb
-from deepsnap.hetero_graph import HeteroGraph
 
 from sklearn.metrics import *
 from tensorboardX import SummaryWriter

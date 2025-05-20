@@ -225,6 +225,10 @@ def load_generic(dataset_dir: str,
 name_dict = {
     'bitcoin-alpha': 'bitcoinalpha.csv',
     'bitcoin-otc': 'bitcoinotc.csv',
+    'er_5': 'er_5.csv',
+    'er_20': 'er_20.csv',
+    'er_50': 'er_50.csv',
+    'er_90': 'er_90.csv',
 }
     
 

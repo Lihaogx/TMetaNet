@@ -142,8 +142,8 @@ def read_tfevents_file(file_path):
 
 # 使用示例
 if __name__ == "__main__":
-    exp1_path = "/home/lh/Dowzag_2.0/exp_sh/exp77_wingnn_topo/results/uci_topo"  # 替换为实际的实验路径
-    exp2_path = "/home/lh/Dowzag_2.0/exp_sh/exp78_wingnn_baseline/results/uci"  # 替换为实际的实验路径
+    exp1_path = "/home/lh/Dowzag_2.0/exp_sh/exp90_eth/results/eth_wingnn"  # 替换为实际的实验路径
+    exp2_path = "/home/lh/Dowzag_2.0/exp_sh/exp90_eth/results/eth_wingnn_topo"  # 替换为实际的实验路径
     print(f"\n比较实验:")
     print(f"实验1: {exp1_path}")
     print(f"实验2: {exp2_path}")
