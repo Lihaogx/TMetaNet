@@ -12,7 +12,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 cfg_dict = {
     "dataset": {
-      "dir": "/home/lh/WinGNN/preprocess/data"
+      "dir": "./preprocess/data"
     },
         "transaction": {
             "snapshot": True, 

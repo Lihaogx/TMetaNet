@@ -91,7 +91,7 @@ def create_dataset():
     Returns:
         List of processed datasets split into train/test
     """
-    path = "/home/lh/Dowzag_2.0/dataset/" + cfg.dataset.name
+    path = "./dataset/" + cfg.dataset.name
     
     if 'windows' in cfg.train.mode:
         # Load data from NPZ files
@@ -208,7 +208,7 @@ def load_topo_dataset(datasets):
     Returns:
         Tuple of (topo_diagrams, topo_features, distance)
     """
-    path = "/home/lh/Dowzag_2.0/dataset/" + cfg.dataset.name + "/topo_feature/"
+    path = "./dataset/" + cfg.dataset.name + "/topo_feature/"
     window_size = cfg.topo.window_size
     remove_edge = cfg.topo.remove_edge
     is_directed = cfg.topo.is_directed

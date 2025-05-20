@@ -1,4 +1,3 @@
-# 保留目录但忽略其中的文件
 data/*
 !data/.gitkeep
 
@@ -16,8 +15,7 @@ nohup.out
 significance.py
 nohup_logs/*
 
-config/*
-!config/.gitkeep
+config/exp_*
 
 exp_sh/*
 !exp_sh/.gitkeep
@@ -25,8 +23,8 @@ exp_sh/*
 dataset/*
 !dataset/.gitkeep
 
-preprocess/*
-!preprocess/.gitkeep
+preprocess/raw_data/*
+!preprocess/raw_data/.gitkeep
 
 .specstory
 *.csv
@@ -34,15 +32,13 @@ preprocess/*
 ER_graph.py
 generate_dynamic_network.py
 
-plot/*
+plot/
 
-noise/*
+noise/
 
-# 通用的系统文件
 .DS_Store
 Thumbs.db
 
-# Python相关
 __pycache__/
 *.py[cod]
 *$py.class
