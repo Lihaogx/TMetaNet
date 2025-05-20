@@ -19,9 +19,11 @@ config/exp_*
 
 exp_sh/*
 !exp_sh/.gitkeep
+!exp_sh/
 
 dataset/*
 !dataset/.gitkeep
+!dataset/
 
 preprocess/raw_data/*
 !preprocess/raw_data/.gitkeep
