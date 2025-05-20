@@ -24,6 +24,10 @@ exp_sh/*
 dataset/*
 !dataset/.gitkeep
 !dataset/
+!dataset/bitcoin-alpha/
+!dataset/bitcoin-alpha/**
+!dataset/uci-msg/
+!dataset/uci-msg/**
 
 preprocess/raw_data/*
 !preprocess/raw_data/.gitkeep
