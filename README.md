@@ -44,9 +44,9 @@ pip install -r requirements.txt
 cd preprocess
 python preprocess.py
 ```
-你需要在preprocess.py中设置数据集的名称，并运行脚本。
+You need to set the dataset name in preprocess.py and run the script.
 
-### 运行程序
+### Run the Program
 ```bash
 cd ..
 python main.py --config config/config.yaml
@@ -56,10 +56,10 @@ python main.py --config config/config.yaml
 ## Citation
 If you use TMetaNet in your research, please cite our paper:
 ```
-@article{tmetanet2024,
-  title={TMetaNet: Your Paper Title},
+@article{tmetanet2025,
+  title={TMetaNet: Topological Meta-Learning Framework for Dynamic Link Prediction.},
   author={Author Names},
   journal={Journal Name},
-  year={2024}
+  year={2025}
 }
 ```
