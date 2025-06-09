@@ -56,10 +56,10 @@ python main.py --config config/config.yaml
 ## Citation
 If you use TMetaNet in your research, please cite our paper:
 ```
-@article{tmetanet2025,
-  title={TMetaNet: Topological Meta-Learning Framework for Dynamic Link Prediction.},
-  author={Author Names},
-  journal={Journal Name},
+@article{li2025tmetanet,
+  title={TMetaNet: Topological Meta-Learning Framework for Dynamic Link Prediction},
+  author={Li, Hao and Wan, Hao and Chen, Yuzhou and Ye, Dongsheng and Gel, Yulia and Jiang, Hao},
+  journal={arXiv preprint arXiv:2506.00453},
   year={2025}
 }
 ```
